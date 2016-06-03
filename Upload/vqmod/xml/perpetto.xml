@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modification>
+    <id>Perpetto for Opencart</id>
+	<version>1.4.x and above</version>
+	<vqmver required="true">2.5.0</vqmver>
+	<author>iSenseLabs</author>
+
+	<file name="catalog/view/theme/*/template/common/footer.tpl">
+		<operation error="log">
+			<search position="before"><![CDATA[</body>]]></search>
+			<add><![CDATA[
+				<script type="text/javascript">
+                        window.PERPETTO_ACCOUNT="<?php if(!empty($perpetto_settings['account_id'])) echo $perpetto_settings['account_id']; else echo ''  ?>";
+                        window.onPerpettoLoaded = function(){
+                                Perpetto.update()
+                        }
+                </script>
+                <script type="text/javascript" src="https://ptto-srv-cdn.azureedge.net/assets/api/v0/embed.js"></script>
+
+			]]></add>
+		</operation>
+	</file>	
+  	<file name="catalog/controller/common/footer.php">
+      <operation error="log">
+        <search position="before"><![CDATA[if (file_exists(DIR_TEMPLATE . $this->config->get('config_template') . '/template/common/footer.tpl')) {]]></search>
+			<add><![CDATA[
+				$this->data['perpetto_settings'] =  $this->config->get('perpetto');
+			]]></add>
+      </operation>
+  	</file>
+  	<file name="catalog/controller/product/product.php">
+		<operation error="log">
+			<search position="before"><![CDATA[if (file_exists(DIR_TEMPLATE . $this->config->get('config_template') . '/template/product/product.tpl')) {]]></search>
+			<add><![CDATA[
+
+				$product_categories = $this->model_catalog_product->getCategories($product_id);
+				if(!empty($product_categories)) {
+					foreach($product_categories as $cat) {
+						$cat_info = $this->model_catalog_category->getCategory($cat['category_id']);
+						$p_cats[] = htmlspecialchars_decode($cat_info['name']);
+					}
+				} else {
+					$p_cats = array();
+				}
+
+				if(!empty($this->data['tags'])) {
+					foreach($this->data['tags'] as $tag) {
+						$p_tags[] = $tag['tag'];
+					}
+				} else {
+					$p_tags = array();
+				}
+				
+				$p_manufacturer = '';
+				if(!empty($manufacturer_info['name'])) {
+					$p_manufacturer = $manufacturer_info['name'];
+				}
+
+				if ((float)$product_info['special']) {
+                    $ptto_special = number_format((float)$this->tax->calculate($product_info['special'], $product_info['tax_class_id'], $this->config->get('config_tax')),2);
+                } else {
+                    $ptto_special = '';
+                }
+				
+				$this->data['perpetto'] = array(
+                    'product_id' => $this->request->get['product_id'],
+                    'product_name' => $product_info['name'],
+					'image'=> $this->data['popup'],
+					'canonical' => htmlspecialchars_decode($this->url->link('product/product', 'product_id=' . $this->request->get['product_id'])),
+					'price' => number_format((float)$this->tax->calculate($product_info['price'], $product_info['tax_class_id'], $this->config->get('config_tax')),2),
+					'currency' => $this->session->data['currency'],
+					'availability' => $product_info['quantity'],
+					'categories'=> implode('/',$p_cats),
+					'special' => $ptto_special,
+					'manufacturer' => $p_manufacturer,
+					'tags' => implode(',',$p_tags),
+					'summary' => trim(substr(strip_tags($this->data['description']),0,128))
+                );
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/view/theme/*/template/product/product.tpl">
+		<operation error="log">
+			<search position="before"><![CDATA[<?php echo $footer; ?>]]></search>
+			<add><![CDATA[
+				<div class="ptto-item-details" style="display:none">
+                        <!-- required -->
+                        <div class="ptto-id"><?php echo $perpetto['product_id']; ?></div>
+                        <div class="ptto-name"><?php echo $perpetto['product_name']; ?></div>
+                        <img class="ptto-image" src="<?php echo $perpetto['image']; ?>" />
+                        <div class="ptto-url"><?php echo $perpetto['canonical'] ?></div>
+                        <div class="ptto-listprice"><?php echo $perpetto['price'] ?></div>
+                        <div class="ptto-currency"><?php echo $perpetto['currency'] ?></div>
+                        <div class="ptto-availability"><?php echo ($perpetto['availability']<=0) ? '0' : '1' ; ?></div>
+                        <div class="ptto-categories"><?php echo $perpetto['categories'] ?></div>
+                        <div class="ptto-category"><?php echo $perpetto['categories'] ?></div>
+                         <!-- optional -->
+                         <div class="ptto-price"><?php echo (!empty($perpetto['special'])) ? $perpetto['special'] : '' ?></div>
+                        <div class="ptto-brand"><?php echo $perpetto['manufacturer'] ?></div>
+                         <div class="ptto-tags"><?php echo $perpetto['tags'] ?></div>
+                        <div class="ptto-summary"><?php echo $perpetto['summary'] ?></div>
+                </div>
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/controller/product/category.php">
+		<operation error="log">
+			<search position="before"><![CDATA[if (file_exists(DIR_TEMPLATE . $this->config->get('config_template') . '/template/product/category.tpl')) {]]></search>
+			<add><![CDATA[
+				for($i=1;$i<count($this->data['breadcrumbs']);$i++) {
+					$p_cats[] = $this->data['breadcrumbs'][$i]['text'];
+				}
+				
+				$this->data['perpetto'] = array(
+					'categories'=> implode('/',$p_cats)
+                );
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/view/theme/*/template/product/category.tpl">
+		<operation error="log">
+			<search position="before"><![CDATA[<?php echo $footer; ?>]]></search>
+			<add><![CDATA[
+				<div class="ptto-category" style="display: none"><?php echo $perpetto['categories'] ?></div>
+			]]></add>
+		</operation>
+	</file>
+  	<file name="system/library/cart.php">
+		<operation error="log">
+			<search position="after"><![CDATA[public function add($product_id, $qty = 1, $option, $profile_id = '') {]]></search>
+			<add><![CDATA[
+				if(empty($this->session->data['cart'])) {
+                    $this->session->data['perpetto_cart_id'] = base64_encode(time()+':'+$_SERVER['REMOTE_ADDR']);
+                }
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/controller/checkout/cart.php">
+		<operation error="log">
+			<search position="before"><![CDATA[if (file_exists(DIR_TEMPLATE . $this->config->get('config_template') . '/template/checkout/cart.tpl')) {]]></search>
+			<add><![CDATA[
+				if(isset($this->session->data['perpetto_cart_id'])) {
+                    $this->data['perpetto']['cart_id'] = $this->session->data['perpetto_cart_id'];
+                } else {
+					$this->data['perpetto']['cart_id'] = '';
+				}
+
+				if(!empty($total_data)) {
+					foreach($total_data as $p_data) {
+						if($p_data['code'] == 'total') {
+							$this->data['perpetto']['total'] = $p_data['value'];
+						}
+					}
+				} else {
+					$this->data['perpetto']['total'] = 0;
+				}
+
+				$this->data['perpetto']['currency'] =  $this->session->data['currency'];
+
+				if(empty($this->data['products']) || count($this->data['products']) < 1) {
+                	$this->data['perpetto']['enabled'] = false;
+                } else {
+					$this->data['perpetto']['enabled'] = true;
+				}
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/view/theme/*/template/checkout/cart.tpl">
+		<operation error="log">
+			<search position="before"><![CDATA[<?php echo $footer; ?>]]></search>
+			<add><![CDATA[
+				<?php if(!empty($this->data['perpetto']['cart_id']) && $perpetto['enabled']) { ?>
+				<div class="ptto-cart" style="display: none">
+                        <!-- required -->
+                        <div class="ptto-cart-id"><?php echo $this->data['perpetto']['cart_id'] ?></div>
+                        <div class="ptto-total"><?php echo $this->data['perpetto']['total'] ?></div>
+                        <div class="ptto-currency"><?php echo $this->data['perpetto']['currency'] ?></div>
+                
+						<?php foreach ($products as $product) { ?>
+						<?php $key = explode(":",$product['key']); ?>
+						<?php $this->data['perpetto']['product_id'] = $key[0]; ?>
+                         <div class="ptto-item">
+                                <div class="ptto-id"><?php echo $this->data['perpetto']['product_id'] ?></div>
+                                <div class="ptto-quantity"><?php echo $product['quantity'] ?></div>
+                                <div class="ptto-price"><?php echo preg_replace("/[^0-9\.]/", "",$product['price']) ?></div>
+                                <div class="ptto-itemTotal"><?php echo preg_replace("/[^0-9\.]/", "",$product['total']) ?></div>
+                        </div>
+						<?php } ?>
+                </div>
+				<?php } ?>
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/controller/common/cart.php">
+		<operation error="log">
+			<search position="before"><![CDATA[if (file_exists(DIR_TEMPLATE . $this->config->get('config_template') . '/template/common/cart.tpl')) {]]></search>
+			<add><![CDATA[
+				if(isset($this->session->data['perpetto_cart_id'])) {
+                    $this->data['perpetto']['cart_id'] = $this->session->data['perpetto_cart_id'];
+                } else {
+                    $this->data['perpetto']['cart_id'] = '';
+                }
+
+                if(!empty($total_data)) {
+                    foreach($total_data as $p_data) {
+                        if($p_data['code'] == 'total') {
+                            $this->data['perpetto']['total'] = $p_data['value'];
+                        }
+                    }
+                } else {
+                    $this->data['perpetto']['total'] = 0;
+                }
+
+                $this->data['perpetto']['currency'] =  $this->session->data['currency'];
+
+				if(empty($this->data['products']) || count($this->data['products']) < 1) {
+                	$this->data['perpetto']['enabled'] = false;
+                } else {
+					$this->data['perpetto']['enabled'] = true;
+				}
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/view/theme/*/template/common/cart.tpl">
+		<operation error="log">
+			<search position="before"><![CDATA[<div id="cart"]]></search>
+			<add><![CDATA[
+				<?php if(!empty($this->data['perpetto']['cart_id']) && $perpetto['enabled']) { ?>
+				<div class="ptto-cart" style="display: none">
+                <!-- required -->
+                <div class="ptto-cart-id"><?php echo $this->data['perpetto']['cart_id'] ?></div>
+                <div class="ptto-total"><?php echo $this->data['perpetto']['total'] ?></div>
+                <div class="ptto-currency"><?php echo $this->data['perpetto']['currency'] ?></div>
+
+                <?php foreach ($products as $product) { ?>               
+                <?php $key = explode(":",$product['key']); ?>
+				<?php $this->data['perpetto']['product_id'] = $key[0]; ?>
+                 <div class="ptto-item">
+                        <div class="ptto-id"><?php echo $this->data['perpetto']['product_id'] ?></div>
+                        <div class="ptto-quantity"><?php echo $product['quantity'] ?></div>
+                        <div class="ptto-price"><?php echo preg_replace("/[^0-9\.]/", "",$product['price']) ?></div>
+                        <div class="ptto-itemTotal"><?php echo preg_replace("/[^0-9\.]/", "",$product['total']) ?></div>
+                </div>
+                <?php } ?>
+              </div>
+              <script>
+                $(document).ready(function() {
+                  Perpetto.update();
+                });
+              </script>
+				<?php } ?>
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/controller/checkout/success.php">
+		<operation error="log">
+			<search position="before"><![CDATA[if (file_exists(DIR_TEMPLATE . $this->config->get('config_template') . '/template/common/success.tpl')) {]]></search>
+			<add><![CDATA[
+				if(isset($this->session->data['perpetto_cart_id'])) {
+                    $this->data['perpetto']['cart_id'] = $this->session->data['perpetto_cart_id'];
+					unset($this->session->data['perpetto_cart_id']);
+                } else {
+					$this->data['perpetto']['cart_id'] = '';
+				}
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/view/theme/*/template/common/success.tpl">
+		<operation error="log">
+			<search position="before"><![CDATA[<?php echo $footer; ?>]]></search>
+			<add><![CDATA[
+				<div class="ptto-cart-paid" style="display: none">
+                        <div class="ptto-cart-id"><?php echo $this->data['perpetto']['cart_id'] ?></div>
+                </div>
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/controller/common/content_top.php">
+		<operation error="log">
+			<search position="after"><![CDATA[$part = explode('.', $module['code']);]]></search>
+			<add><![CDATA[
+				if($module['code'] == 'perpetto') {
+                    $GLOBALS['ptto_current_position'] = 'content_top';
+                }
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/controller/common/content_bottom.php">
+		<operation error="log">
+			<search position="after"><![CDATA[$part = explode('.', $module['code']);]]></search>
+			<add><![CDATA[
+				if($module['code'] == 'perpetto') {
+                    $GLOBALS['ptto_current_position'] = 'content_bottom';
+                }
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/controller/common/column_left.php">
+		<operation error="log">
+			<search position="after"><![CDATA[$part = explode('.', $module['code']);]]></search>
+			<add><![CDATA[
+				if($module['code'] == 'perpetto') {
+                    $GLOBALS['ptto_current_position'] = 'column_left';
+                }
+			]]></add>
+		</operation>
+	</file>
+  	<file name="catalog/controller/common/column_right.php">
+		<operation error="log">
+			<search position="after"><![CDATA[$part = explode('.', $module['code']);]]></search>
+			<add><![CDATA[
+				if($module['code'] == 'perpetto') {
+                    $GLOBALS['ptto_current_position'] = 'column_right';
+                }
+			]]></add>
+		</operation>
+	</file>
+</modification>
